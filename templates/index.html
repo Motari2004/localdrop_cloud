@@ -2,43 +2,217 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>LocalDrop Cloud - Neon Edition</title>
+    <title>LocalDrop Cloud | Seamless Sharing</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1c1e21; max-width: 500px; margin: 0 auto; padding: 20px; }
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 20px; }
-        h1 { text-align: center; color: #007bff; margin-bottom: 10px; }
-        .ip-badge { text-align: center; background: #e7f3ff; color: #007bff; padding: 8px; border-radius: 8px; font-size: 0.9em; font-weight: bold; margin-bottom: 20px; border: 1px solid #bbe2ff; word-break: break-all; }
-        textarea { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; resize: vertical; }
-        input[type="file"] { margin: 10px 0; display: block; }
-        button { background: #007bff; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; transition: 0.2s; }
-        button:hover { background: #0056b3; }
-        .share-item { background: #fff; padding: 12px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px; }
-        .share-item:last-child { border-bottom: none; }
-        .type-tag { font-size: 0.65em; text-transform: uppercase; background: #e4e6eb; padding: 3px 7px; border-radius: 4px; color: #65676b; font-weight: bold; }
-        .link { color: #007bff; text-decoration: none; word-break: break-all; font-size: 0.95em; }
-        .link:hover { text-decoration: underline; }
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #22d3ee;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: var(--bg); 
+            background-image: radial-gradient(circle at top right, #1e1b4b, transparent), radial-gradient(circle at bottom left, #0c4a6e, transparent);
+            color: var(--text-main); 
+            max-width: 600px; 
+            margin: 0 auto; 
+            padding: 40px 20px; 
+            min-height: 100vh;
+        }
+
+        h1 { 
+            text-align: center; 
+            font-weight: 800; 
+            font-size: 2.5rem; 
+            margin-bottom: 8px; 
+            background: linear-gradient(to right, #818cf8, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+
+        .url-display { 
+            text-align: center; 
+            background: var(--card-bg); 
+            color: var(--accent); 
+            padding: 12px; 
+            border-radius: 12px; 
+            font-size: 0.85em; 
+            font-family: monospace;
+            margin-bottom: 30px; 
+            border: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+        }
+
+        .card { 
+            background: var(--card-bg); 
+            padding: 24px; 
+            border-radius: 20px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3); 
+            margin-bottom: 24px; 
+            border: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+        }
+
+        .card-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        textarea { 
+            width: 100%; 
+            padding: 14px; 
+            margin: 10px 0; 
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border); 
+            border-radius: 12px; 
+            box-sizing: border-box; 
+            color: white;
+            font-family: inherit;
+            transition: border 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* Custom Drop Zone */
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 15px;
+            color: var(--text-muted);
+        }
+
+        .drop-zone:hover {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        #fileInput { display: none; }
+
+        button { 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            padding: 14px; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            width: 100%; 
+            font-weight: 600; 
+            font-size: 1rem;
+            transition: all 0.2s; 
+        }
+
+        button:hover { 
+            background: var(--primary-hover); 
+            transform: translateY(-1px);
+        }
+
+        .share-item { 
+            background: rgba(255, 255, 255, 0.03); 
+            padding: 16px; 
+            border-radius: 12px; 
+            margin-bottom: 12px; 
+            display: flex; 
+            flex-direction: column;
+            gap: 10px; 
+            border: 1px solid var(--border);
+        }
+
+        .share-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .type-tag { 
+            font-size: 0.6em; 
+            text-transform: uppercase; 
+            background: var(--primary); 
+            padding: 3px 8px; 
+            border-radius: 6px; 
+            color: white; 
+            font-weight: 800; 
+        }
+
+        .content-text { 
+            word-break: break-all; 
+            font-size: 0.95em; 
+            color: var(--text-main);
+        }
+
+        .download-btn {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.8em;
+            width: auto;
+            text-decoration: none;
+            text-align: center;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .download-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
     </style>
 </head>
 <body>
-    <h1>LocalDrop Cloud</h1>
-    <div class="ip-badge">Share URL: {{ url }}</div>
+    <h1>LocalDrop</h1>
+    <div class="subtitle">Secure, instant, cloud-based sharing</div>
+    <div class="url-display">🔗 {{ url }}</div>
 
     <div class="card">
-        <h3 style="margin-top:0">Send Text or Link</h3>
-        <textarea id="textContent" placeholder="Paste URL or message..."></textarea>
-        <button type="button" onclick="sendText()">Send Now</button>
+        <div class="card-title">📝 Quick Text</div>
+        <textarea id="textContent" placeholder="Paste a link or a secret message..."></textarea>
+        <button type="button" onclick="sendText()">Share Now</button>
     </div>
 
     <div class="card">
-        <h3 style="margin-top:0">Send File</h3>
-        <input type="file" id="fileInput">
-        <button type="button" onclick="sendFile()">Upload File</button>
+        <div class="card-title">📁 File Transfer</div>
+        <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
+            <div style="font-size: 2rem; margin-bottom: 10px;">☁️</div>
+            <div>Click or drag to upload a file</div>
+            <div style="font-size: 0.8em; margin-top: 5px;">All file types supported</div>
+        </div>
+        <input type="file" id="fileInput" onchange="sendFile()">
     </div>
 
     <div class="card">
-        <h3 style="margin-top:0">Received</h3>
-        <div id="sharesList">Loading shares...</div>
+        <div class="card-title">📥 Recent Drops</div>
+        <div id="sharesList">Loading drops...</div>
     </div>
 
     <script>
@@ -49,23 +223,36 @@
                 const list = document.getElementById('sharesList');
                 list.innerHTML = '';
                 if(data.length === 0) {
-                    list.innerHTML = '<div style="color:#888; text-align:center">Nothing shared yet.</div>';
+                    list.innerHTML = '<div style="color:var(--text-muted); text-align:center">No drops yet. Be the first!</div>';
                     return;
                 }
                 data.forEach(item => {
                     const div = document.createElement('div');
                     div.className = 'share-item';
+                    
                     if(item.type === 'text') {
                         const isUrl = item.value.startsWith('http');
-                        const content = isUrl ? `<a class="link" href="${item.value}" target="_blank">${item.value}</a>` : item.value;
-                        div.innerHTML = `<span class="type-tag">Text</span><span>${content}</span>`;
+                        const content = isUrl ? `<a href="${item.value}" target="_blank" style="color:var(--accent); text-decoration:none;">${item.value}</a>` : item.value;
+                        div.innerHTML = `
+                            <div class="share-header"><span class="type-tag">Text</span></div>
+                            <div class="content-text">${content}</div>
+                        `;
                     } else {
-                        div.innerHTML = `<span class="type-tag">File</span><a class="link" href="${item.value}" target="_blank">${item.filename}</a>`;
+                        div.innerHTML = `
+                            <div class="share-header">
+                                <span class="type-tag">File</span>
+                                <a href="${item.value}" target="_blank" class="download-btn" download="${item.filename}">
+                                    ⬇️ Download
+                                </a>
+                            </div>
+                            <div class="content-text" style="color:var(--text-muted)">${item.filename}</div>
+                        `;
                     }
                     list.appendChild(div);
                 });
             } catch (e) { console.error("Error loading shares"); }
         }
+
         async function sendText() {
             const content = document.getElementById('textContent').value;
             if(!content) return;
@@ -76,16 +263,25 @@
             document.getElementById('textContent').value = '';
             loadShares();
         }
+
         async function sendFile() {
             const fileInput = document.getElementById('fileInput');
             if(fileInput.files.length === 0) return;
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
             formData.append('type', 'file');
+            
+            // Visual feedback
+            const btn = document.querySelector('.drop-zone');
+            btn.innerHTML = "Uploading... ⏳";
+            
             await fetch('/send', { method: 'POST', body: formData });
+            
+            btn.innerHTML = '<div style="font-size: 2rem; margin-bottom: 10px;">☁️</div><div>Click or drag to upload a file</div><div style="font-size: 0.8em; margin-top: 5px;">All file types supported</div>';
             fileInput.value = '';
             loadShares();
         }
+
         setInterval(loadShares, 5000);
         loadShares();
     </script>
