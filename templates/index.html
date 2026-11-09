@@ -287,13 +287,16 @@
                     
                     if(item.type === 'text') {
                         const isUrl = item.value.startsWith('http');
-                        const content = isUrl ? `<a href="${item.value}" target="_blank" style="color:var(--accent); text-decoration:none;">${item.value}</a>` : item.value;
+                        const displayContent = isUrl ? `<a href="${item.value}" target="_blank" style="color:var(--accent); text-decoration:none;">${item.value}</a>` : item.value;
                         div.innerHTML = `
                             <div class="share-header">
                                 <span class="type-tag">Text</span>
-                                <button class="delete-btn" onclick="deleteShare(${item.id})" title="Remove this drop">🗑️</button>
+                                <div style="display:flex; gap: 10px; align-items:center;">
+                                    <button class="copy-text-btn" onclick="copyText(this, \`${item.value}\`)">📋 Copy</button>
+                                    <button class="delete-btn" onclick="deleteShare(${item.id})" title="Remove this drop">🗑️</button>
+                                </div>
                             </div>
-                            <div class="content-text">${content}</div>
+                            <div class="content-text">${displayContent}</div>
                         `;
                     } else {
                         let downloadUrl = item.value;
