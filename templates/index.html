@@ -220,7 +220,29 @@
             color: white !important;
             transform: scale(1.1);
         }
-    </style>
+    
+    .copy-text-btn {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        color: var(--text-muted);
+        padding: 4px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s;
+        margin-left: 10px;
+    }
+    .copy-text-btn:hover {
+        background: var(--border-color);
+        color: var(--text-main);
+    }
+    .copy-text-btn.success {
+        background: #2ecc71;
+        color: white;
+        border-color: #2ecc71;
+    }
+
+</style>
 </head>
 <body>
     <h1>LocalDrop</h1>
@@ -341,6 +363,19 @@
 
         setInterval(loadShares, 5000);
         loadShares();
-    </script>
+    
+function copyText(btn, text) {
+    navigator.clipboard.writeText(text).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = "✅ Copied!";
+        btn.classList.add('success');
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.classList.remove('success');
+        }, 2000);
+    });
+}
+
+</script>
 </body>
 </html>
