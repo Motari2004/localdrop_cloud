@@ -4,6 +4,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import cloudinary
 import cloudinary.uploader
+import cloudinary.utils
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -28,7 +29,6 @@ def get_db_connection():
     return conn
 
 def init_db():
-    # Create the shares table if it doesn't exist
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute('''
@@ -44,7 +44,6 @@ def init_db():
     cur.close()
     conn.close()
 
-# Initialize DB on startup
 try:
     init_db()
 except Exception as e:
@@ -67,7 +66,6 @@ def send():
         if type_ == 'file':
             file = request.files.get('file')
             if file:
-                # Upload file to Cloudinary
                 upload_result = cloudinary.uploader.upload(file)
                 secure_url = upload_result.get('secure_url')
                 filename = file.filename
@@ -91,12 +89,53 @@ def send():
 def get_shares():
     conn = get_db_connection()
     cur = conn.cursor()
-    # Fetch last 50 shares
     cur.execute('SELECT * FROM shares ORDER BY created_at DESC LIMIT 50')
     shares = cur.fetchall()
     cur.close()
     conn.close()
     return jsonify(shares)
+
+@app.route('/delete/<int:share_id>', methods=['DELETE'])
+def delete_share(share_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    try:
+        # 1. Find the share to see if it's a file (to delete from Cloudinary)
+        cur.execute('SELECT type, value FROM shares WHERE id = %s', (share_id,))
+        share = cur.fetchone()
+        
+        if not share:
+            return jsonify({'status': 'not found'}), 404
+            
+        if share['type'] == 'file':
+            # Extract the public_id from the Cloudinary URL
+            # Example URL: https://res.cloudinary.com/demo/image/upload/v1234/folder/sample.jpg
+            url = share['value']
+            # Split by /upload/ and then remove extension from the last part
+            try:
+                parts = url.split('/upload/')
+                if len(parts) > 1:
+                    path_with_version = parts[1].split('/')
+                    # Remove the 'v1234567' version prefix if exists
+                    version_and_path = path_with_version[0].split('/') 
+                    # This is tricky, simpler way: use cloudinary.utils.asset_id_from_url
+                    public_id = cloudinary.utils.asset_id_from_url(url)
+                    cloudinary.uploader.destroy(public_id)
+            except Exception as e:
+                print(f"Cloudinary delete error: {e}")
+
+        # 2. Delete from Neon DB
+        cur.execute('DELETE FROM shares WHERE id = %s', (share_id,))
+        conn.commit()
+        return jsonify({'status': 'success'})
+        
+    except Exception as e:
+        print(f"Delete Error: {e}")
+        return jsonify({'status': 'error'}), 500
+    finally:
+        cur.close()
+        conn.close()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))

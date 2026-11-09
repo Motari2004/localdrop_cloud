@@ -17,6 +17,7 @@
             --text-muted: #94a3b8;
             --accent: #22d3ee;
             --border: rgba(255, 255, 255, 0.1);
+            --danger: #ef4444;
         }
 
         body { 
@@ -97,7 +98,6 @@
             border-color: var(--primary);
         }
 
-        /* Custom Drop Zone */
         .drop-zone {
             border: 2px dashed var(--border);
             border-radius: 12px;
@@ -143,6 +143,7 @@
             flex-direction: column;
             gap: 10px; 
             border: 1px solid var(--border);
+            position: relative;
         }
 
         .share-header {
@@ -186,6 +187,22 @@
         .download-btn:hover {
             background: var(--primary);
             color: white;
+        }
+
+        .delete-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: 0.2s;
+            padding: 0;
+            width: auto;
+        }
+
+        .delete-btn:hover {
+            color: var(--danger);
+            transform: scale(1.2);
         }
     </style>
 </head>
@@ -234,16 +251,22 @@
                         const isUrl = item.value.startsWith('http');
                         const content = isUrl ? `<a href="${item.value}" target="_blank" style="color:var(--accent); text-decoration:none;">${item.value}</a>` : item.value;
                         div.innerHTML = `
-                            <div class="share-header"><span class="type-tag">Text</span></div>
+                            <div class="share-header">
+                                <span class="type-tag">Text</span>
+                                <button class="delete-btn" onclick="deleteShare(${item.id})">🗑️</button>
+                            </div>
                             <div class="content-text">${content}</div>
                         `;
                     } else {
                         div.innerHTML = `
                             <div class="share-header">
                                 <span class="type-tag">File</span>
-                                <a href="${item.value}" target="_blank" class="download-btn" download="${item.filename}">
-                                    ⬇️ Download
-                                </a>
+                                <div style="display:flex; gap: 10px; align-items:center;">
+                                    <a href="${item.value}" target="_blank" class="download-btn" download="${item.filename}">
+                                        ⬇️ Download
+                                    </a>
+                                    <button class="delete-btn" onclick="deleteShare(${item.id})">🗑️</button>
+                                </div>
                             </div>
                             <div class="content-text" style="color:var(--text-muted)">${item.filename}</div>
                         `;
@@ -251,6 +274,16 @@
                     list.appendChild(div);
                 });
             } catch (e) { console.error("Error loading shares"); }
+        }
+
+        async function deleteShare(id) {
+            if(!confirm("Are you sure you want to wipe this drop?")) return;
+            try {
+                await fetch(`/delete/${id}`, { method: 'DELETE' });
+                loadShares();
+            } catch (e) {
+                alert("Error deleting share");
+            }
         }
 
         async function sendText() {
@@ -271,7 +304,6 @@
             formData.append('file', fileInput.files[0]);
             formData.append('type', 'file');
             
-            // Visual feedback
             const btn = document.querySelector('.drop-zone');
             btn.innerHTML = "Uploading... ⏳";
             
