@@ -222,24 +222,28 @@
         }
     
     .copy-text-btn {
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-color);
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border);
         color: var(--text-muted);
-        padding: 4px 8px;
+        padding: 4px 10px;
         border-radius: 6px;
         cursor: pointer;
         font-size: 12px;
         transition: all 0.2s;
         margin-left: 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
     }
     .copy-text-btn:hover {
-        background: var(--border-color);
-        color: var(--text-main);
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
     }
     .copy-text-btn.success {
-        background: #2ecc71;
-        color: white;
-        border-color: #2ecc71;
+        background: #2ecc71 !important;
+        color: white !important;
+        border-color: #2ecc71 !important;
     }
 
 </style>
