@@ -271,11 +271,15 @@
                             <div class="content-text">${content}</div>
                         `;
                     } else {
+                        let downloadUrl = item.value;
+                        if (downloadUrl.includes('cloudinary.com') && downloadUrl.includes('/upload/')) {
+                            downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
+                        }
                         div.innerHTML = `
                             <div class="share-header">
                                 <span class="type-tag">File</span>
                                 <div style="display:flex; gap: 10px; align-items:center;">
-                                    <a href="${item.value}" class="download-btn" download="${item.filename}">
+                                    <a href="${downloadUrl}" class="download-btn" download="${item.filename}">
                                         ⬇️ Download
                                     </a>
                                     <button class="delete-btn" onclick="deleteShare(${item.id})" title="Remove this file">🗑️</button>
