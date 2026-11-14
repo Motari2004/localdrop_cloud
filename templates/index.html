@@ -179,7 +179,6 @@
             white-space: pre-wrap;
         }
 
-        /* --- Long text collapse --- */
         .content-text.collapsed {
             display: -webkit-box;
             -webkit-line-clamp: 3;
@@ -292,7 +291,7 @@
         <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
             <div style="font-size: 2rem; margin-bottom: 10px;">☁️</div>
             <div>Click or drag to upload a file</div>
-            <div style="font-size: 0.8em; margin-top: 5px;">All file types supported</div>
+            <div style="font-size: 0.8em; margin-top: 5px;">Max 10 MB · All file types</div>
         </div>
         <input type="file" id="fileInput" onchange="sendFile()">
     </div>
@@ -303,7 +302,6 @@
     </div>
 
     <script>
-        // Preserve expanded state across the 5s refresh
         const expandedIds = new Set();
 
         function escapeHtml(s) {
@@ -337,10 +335,11 @@
         async function loadShares() {
             try {
                 const res = await fetch('/shares');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
                 const list = document.getElementById('sharesList');
                 list.innerHTML = '';
-                if (data.length === 0) {
+                if (!Array.isArray(data) || data.length === 0) {
                     list.innerHTML = '<div style="color:var(--text-muted); text-align:center">No drops yet. Be the first!</div>';
                     return;
                 }
@@ -384,7 +383,11 @@
                     }
                     list.appendChild(div);
                 });
-            } catch (e) { console.error("Error loading shares", e); }
+            } catch (e) {
+                console.error("Error loading shares", e);
+                const list = document.getElementById('sharesList');
+                if (list) list.innerHTML = '<div style="color:var(--danger); text-align:center">Failed to load drops: ' + escapeHtml(e.message) + '</div>';
+            }
         }
 
         document.getElementById('sharesList').addEventListener('click', async (e) => {
@@ -400,7 +403,6 @@
                 }, 1500);
                 return;
             }
-
             const toggleBtn = e.target.closest('[data-toggle]');
             if (toggleBtn) {
                 const id = Number(toggleBtn.dataset.toggle);
@@ -416,7 +418,6 @@
                 }
                 return;
             }
-
             const delBtn = e.target.closest('[data-delete]');
             if (delBtn) {
                 deleteShare(Number(delBtn.dataset.delete));
@@ -477,7 +478,6 @@
                 fileInput.value = '';
                 loadShares();
             }
-        }
         }
 
         setInterval(loadShares, 5000);
