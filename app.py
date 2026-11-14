@@ -7,6 +7,9 @@ import cloudinary.uploader
 import cloudinary.utils
 from dotenv import load_dotenv
 
+import requests
+from flask import Response, stream_with_context, abort
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -136,6 +139,47 @@ def delete_share(share_id):
     finally:
         cur.close()
         conn.close()
+
+
+@app.route('/download/<int:share_id>')
+def download_share(share_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute('SELECT type, value, filename FROM shares WHERE id = %s', (share_id,))
+        share = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
+
+    if not share or share['type'] != 'file':
+        abort(404)
+
+    # Force Cloudinary to serve as attachment, then proxy so we control filename
+    url = share['value'].replace('/upload/', '/upload/fl_attachment/')
+    try:
+        resp = requests.get(url, stream=True, timeout=30)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        print(f"Download proxy error: {e}")
+        abort(502)
+
+    filename = (share['filename'] or 'download').replace('"', '').replace('\n', '').replace('\r', '')
+
+    headers = {
+        'Content-Disposition': f'attachment; filename="{filename}"',
+        'Content-Type': resp.headers.get('Content-Type', 'application/octet-stream'),
+    }
+    content_length = resp.headers.get('Content-Length')
+    if content_length:
+        headers['Content-Length'] = content_length
+
+    return Response(
+        stream_with_context(resp.iter_content(chunk_size=8192)),
+        headers=headers,
+        status=200,
+    )
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))

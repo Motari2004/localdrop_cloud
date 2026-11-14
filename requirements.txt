@@ -3,3 +3,4 @@ psycopg2-binary
 cloudinary
 python-dotenv
 gunicorn
+requests
