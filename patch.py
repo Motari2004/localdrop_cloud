@@ -1,6 +1,6 @@
 """
 patch.py — applies the copy-button / download-button / XSS fixes to
-app.py, index.html, and requirements.txt.
+app.py, requirements.txt, and templates/index.html.
 
 Usage:
     python patch.py
@@ -9,7 +9,6 @@ Safe to run more than once: it detects already-applied changes and skips them.
 """
 
 import os
-import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -28,7 +27,6 @@ def write(path, content):
 
 
 def backup(path):
-    """Make a one-time .bak copy before editing."""
     bak = path + ".bak"
     if not os.path.exists(bak):
         write(bak, read(path))
@@ -37,8 +35,9 @@ def backup(path):
 
 def patch_file(name, transforms):
     path = os.path.join(ROOT, name)
+    print(f"  path: {path}")
     if not os.path.exists(path):
-        print(f"[skip] {name} not found")
+        print(f"[skip] {name} not found at {path}")
         return False
 
     original = read(path)
@@ -95,7 +94,6 @@ def download_share(share_id):
     if not share or share['type'] != 'file':
         abort(404)
 
-    # Force Cloudinary to serve as attachment, then proxy so we control filename
     url = share['value'].replace('/upload/', '/upload/fl_attachment/')
     try:
         resp = requests.get(url, stream=True, timeout=30)
@@ -146,7 +144,7 @@ def reqs_add_requests(src):
 
 
 # ---------------------------------------------------------------------------
-# index.html transform
+# templates/index.html transform
 # ---------------------------------------------------------------------------
 NEW_SCRIPT = """<script>
     function escapeHtml(s) {
@@ -294,10 +292,8 @@ NEW_SCRIPT = """<script>
 
 
 def html_replace_script(src):
-    # Detect the new marker that only exists in the new script
-    if "function escapeAttr(s)" in src and "download_share" not in src:
-        # new script already present
-        return src
+    if "function escapeAttr(s)" in src:
+        return src  # already patched
 
     start = src.find("<script>")
     if start == -1:
@@ -327,8 +323,8 @@ def main():
         ("ensure 'requests' listed", reqs_add_requests),
     ])
 
-    print("\n[3/3] index.html")
-    patch_file("index.html", [
+    print("\n[3/3] templates/index.html")
+    patch_file(os.path.join("templates", "index.html"), [
         ("replace <script> block", html_replace_script),
     ])
 

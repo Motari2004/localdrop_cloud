@@ -275,114 +275,147 @@
     </div>
 
     <script>
-        async function loadShares() {
-            try {
-                const res = await fetch('/shares');
-                const data = await res.json();
-                const list = document.getElementById('sharesList');
-                list.innerHTML = '';
-                if(data.length === 0) {
-                    list.innerHTML = '<div style="color:var(--text-muted); text-align:center">No drops yet. Be the first!</div>';
-                    return;
-                }
-                data.forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = 'share-item';
-                    
-                    if(item.type === 'text') {
-                        const isUrl = item.value.startsWith('http');
-                        const displayContent = isUrl ? `<a href="${item.value}" target="_blank" style="color:var(--accent); text-decoration:none;">${item.value}</a>` : item.value;
-                        div.innerHTML = `
-                            <div class="share-header">
-                                <span class="type-tag">Text</span>
-                                <div style="display:flex; gap: 10px; align-items:center;">
-                                    <button class="copy-text-btn" onclick="copyText(this, \`${item.value}\`)">📋 Copy</button>
-                                    <button class="delete-btn" onclick="deleteShare(${item.id})" title="Remove this drop">🗑️</button>
-                                </div>
-                            </div>
-                            <div class="content-text">${displayContent}</div>
-                        `;
-                    } else {
-                        let downloadUrl = item.value;
-                        if (downloadUrl.includes('cloudinary.com') && downloadUrl.includes('/upload/')) {
-                            downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
-                        }
-                        div.innerHTML = `
-                            <div class="share-header">
-                                <span class="type-tag">File</span>
-                                <div style="display:flex; gap: 10px; align-items:center;">
-                                    <a href="${downloadUrl}" class="download-btn" download="${item.filename}">
-                                        ⬇️ Download
-                                    </a>
-                                    <button class="delete-btn" onclick="deleteShare(${item.id})" title="Remove this file">🗑️</button>
-                                </div>
-                            </div>
-                            <div class="content-text" style="color:var(--text-muted)">${item.filename}</div>
-                        `;
-                    }
-                    list.appendChild(div);
-                });
-            } catch (e) { console.error("Error loading shares"); }
-        }
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({
+            '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+        }[c]));
+    }
+    function escapeAttr(s) { return escapeHtml(s); }
 
-        async function deleteShare(id) {
-            if(!confirm("Are you sure you want to wipe this drop?")) return;
+    async function copyToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
             try {
-                await fetch(`/delete/${id}`, { method: 'DELETE' });
-                loadShares();
-            } catch (e) {
-                alert("Error deleting share");
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (_) { /* fall through */ }
+        }
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-9999px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+        document.body.removeChild(ta);
+        return ok;
+    }
+
+    async function loadShares() {
+        try {
+            const res = await fetch('/shares');
+            const data = await res.json();
+            const list = document.getElementById('sharesList');
+            list.innerHTML = '';
+            if (data.length === 0) {
+                list.innerHTML = '<div style="color:var(--text-muted); text-align:center">No drops yet. Be the first!</div>';
+                return;
             }
+            data.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'share-item';
+
+                if (item.type === 'text') {
+                    const isUrl = item.value.startsWith('http');
+                    const displayContent = isUrl
+                        ? `<a href="${escapeAttr(item.value)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;word-break:break-all;">${escapeHtml(item.value)}</a>`
+                        : escapeHtml(item.value);
+
+                    div.innerHTML = `
+                        <div class="share-header">
+                            <span class="type-tag">Text</span>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <button class="copy-text-btn" data-copy="${escapeAttr(item.value)}">📋 Copy</button>
+                                <button class="delete-btn" data-delete="${item.id}" title="Remove this drop">🗑️</button>
+                            </div>
+                        </div>
+                        <div class="content-text">${displayContent}</div>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <div class="share-header">
+                            <span class="type-tag">File</span>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <a href="/download/${item.id}" class="download-btn">⬇️ Download</a>
+                                <button class="delete-btn" data-delete="${item.id}" title="Remove this file">🗑️</button>
+                            </div>
+                        </div>
+                        <div class="content-text" style="color:var(--text-muted)">${escapeHtml(item.filename || '')}</div>
+                    `;
+                }
+                list.appendChild(div);
+            });
+        } catch (e) { console.error("Error loading shares", e); }
+    }
+
+    document.getElementById('sharesList').addEventListener('click', async (e) => {
+        const copyBtn = e.target.closest('[data-copy]');
+        if (copyBtn) {
+            const ok = await copyToClipboard(copyBtn.dataset.copy);
+            const original = copyBtn.textContent;
+            copyBtn.textContent = ok ? '✅ Copied!' : '❌ Failed';
+            copyBtn.classList.toggle('success', ok);
+            setTimeout(() => {
+                copyBtn.textContent = original;
+                copyBtn.classList.remove('success');
+            }, 1500);
+            return;
         }
 
-        async function sendText() {
-            const content = document.getElementById('textContent').value;
-            if(!content) return;
-            const formData = new FormData();
-            formData.append('content', content);
-            formData.append('type', 'text');
+        const delBtn = e.target.closest('[data-delete]');
+        if (delBtn) {
+            deleteShare(Number(delBtn.dataset.delete));
+        }
+    });
+
+    async function deleteShare(id) {
+        if (!confirm("Are you sure you want to wipe this drop?")) return;
+        try {
+            await fetch(`/delete/${id}`, { method: 'DELETE' });
+            loadShares();
+        } catch (e) {
+            alert("Error deleting share");
+        }
+    }
+
+    async function sendText() {
+        const content = document.getElementById('textContent').value;
+        if (!content) return;
+        const formData = new FormData();
+        formData.append('content', content);
+        formData.append('type', 'text');
+        await fetch('/send', { method: 'POST', body: formData });
+        document.getElementById('textContent').value = '';
+        loadShares();
+    }
+
+    async function sendFile() {
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput.files.length === 0) return;
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('type', 'file');
+
+        const btn = document.querySelector('.drop-zone');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = "Uploading... ⏳";
+
+        try {
             await fetch('/send', { method: 'POST', body: formData });
-            document.getElementById('textContent').value = '';
+        } catch (e) {
+            alert("Upload failed");
+        } finally {
+            btn.innerHTML = originalHTML;
+            fileInput.value = '';
             loadShares();
         }
+    }
 
-        async function sendFile() {
-            const fileInput = document.getElementById('fileInput');
-            if(fileInput.files.length === 0) return;
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-            formData.append('type', 'file');
-            
-            const btn = document.querySelector('.drop-zone');
-            const originalHTML = btn.innerHTML;
-            btn.innerHTML = "Uploading... ⏳";
-            
-            try {
-                await fetch('/send', { method: 'POST', body: formData });
-            } catch(e) {
-                alert("Upload failed");
-            } finally {
-                btn.innerHTML = originalHTML;
-                fileInput.value = '';
-                loadShares();
-            }
-        }
-
-        setInterval(loadShares, 5000);
-        loadShares();
-    
-function copyText(btn, text) {
-    navigator.clipboard.writeText(text).then(() => {
-        const originalText = btn.innerText;
-        btn.innerText = "✅ Copied!";
-        btn.classList.add('success');
-        setTimeout(() => {
-            btn.innerText = originalText;
-            btn.classList.remove('success');
-        }, 2000);
-    });
-}
-
+    setInterval(loadShares, 5000);
+    loadShares();
 </script>
+
 </body>
 </html>
