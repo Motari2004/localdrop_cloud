@@ -448,23 +448,36 @@
         async function sendFile() {
             const fileInput = document.getElementById('fileInput');
             if (fileInput.files.length === 0) return;
+            const file = fileInput.files[0];
+
+            if (file.size > 10 * 1024 * 1024) {
+                alert(`File too large (${(file.size/1024/1024).toFixed(1)} MB). Max is 10 MB.`);
+                fileInput.value = '';
+                return;
+            }
+
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+            formData.append('file', file);
             formData.append('type', 'file');
 
             const btn = document.querySelector('.drop-zone');
             const originalHTML = btn.innerHTML;
-            btn.innerHTML = "Uploading... ⏳";
+            btn.innerHTML = `Uploading ${escapeHtml(file.name)}... ⏳`;
 
             try {
-                await fetch('/send', { method: 'POST', body: formData });
+                const res = await fetch('/send', { method: 'POST', body: formData });
+                const json = await res.json();
+                if (!res.ok || json.status !== 'success') {
+                    throw new Error(json.message || `Upload failed (HTTP ${res.status})`);
+                }
             } catch (e) {
-                alert("Upload failed");
+                alert('Upload failed: ' + e.message);
             } finally {
                 btn.innerHTML = originalHTML;
                 fileInput.value = '';
                 loadShares();
             }
+        }
         }
 
         setInterval(loadShares, 5000);

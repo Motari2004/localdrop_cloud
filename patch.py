@@ -1,14 +1,20 @@
 """
-patch.py — applies the copy-button / download-button / XSS fixes to
-app.py, requirements.txt, and templates/index.html.
+patch.py — applies:
+  * requests import + /download/<id> proxy route
+  * raw file-type support (.py, .js, .sh, .zip, etc.)
+  * public_id column + safe Cloudinary delete
+  * 10 MB size check + clear error messages
+  * frontend: better sendFile() error handling
+to app.py, requirements.txt, templates/index.html.
 
 Usage:
     python patch.py
 
-Safe to run more than once: it detects already-applied changes and skips them.
+Safe to run more than once: idempotent per transform.
 """
 
 import os
+import re
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -37,21 +43,20 @@ def patch_file(name, transforms):
     path = os.path.join(ROOT, name)
     print(f"  path: {path}")
     if not os.path.exists(path):
-        print(f"[skip] {name} not found at {path}")
+        print(f"[skip] {name} not found")
         return False
 
-    original = read(path)
-    content = original
+    content = read(path)
     changed = False
 
     for label, fn in transforms:
         new = fn(content)
         if new == content:
-            print(f"  [already applied / no change] {label}")
+            print(f"  [no change] {label}")
         else:
             content = new
             changed = True
-            print(f"  [patched] {label}")
+            print(f"  [patched]  {label}")
 
     if changed:
         backup(path)
@@ -62,23 +67,207 @@ def patch_file(name, transforms):
     return changed
 
 
+def replace_block(src, start_marker, end_marker, new_block, label):
+    """Replace src[start_marker ... end_marker] (inclusive) with new_block."""
+    start = src.find(start_marker)
+    if start == -1:
+        print(f"  [skip] {label}: start marker not found")
+        return src
+    end = src.find(end_marker, start)
+    if end == -1:
+        print(f"  [skip] {label}: end marker not found")
+        return src
+    end += len(end_marker)
+    if src[start:end] == new_block:
+        return src
+    return src[:start] + new_block + src[end:]
+
+
 # ---------------------------------------------------------------------------
-# app.py transforms
+# app.py — imports
 # ---------------------------------------------------------------------------
 def app_add_imports(src):
     if "from flask import Response, stream_with_context, abort" in src:
         return src
     marker = "from dotenv import load_dotenv\n"
     if marker not in src:
-        raise SystemExit("app.py: could not find 'from dotenv import load_dotenv'")
-    addition = (
-        marker
-        + "\nimport requests\n"
-        + "from flask import Response, stream_with_context, abort\n"
+        raise SystemExit("app.py: missing load_dotenv import")
+    return src.replace(
+        marker,
+        marker + "\nimport requests\nfrom flask import Response, stream_with_context, abort\n",
+        1,
     )
-    return src.replace(marker, addition, 1)
 
 
+# ---------------------------------------------------------------------------
+# app.py — init_db (adds public_id + idempotent ALTER)
+# ---------------------------------------------------------------------------
+NEW_INIT_DB = '''def init_db():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS shares (
+            id SERIAL PRIMARY KEY,
+            type VARCHAR(10),
+            value TEXT,
+            filename TEXT,
+            public_id TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+    cur.execute("ALTER TABLE shares ADD COLUMN IF NOT EXISTS public_id TEXT;")
+    conn.commit()
+    cur.close()
+    conn.close()
+'''
+
+
+def app_replace_init_db(src):
+    if "ADD COLUMN IF NOT EXISTS public_id" in src:
+        return src
+    # Match "def init_db():" through "conn.close()" followed by blank line
+    return replace_block(
+        src,
+        "def init_db():",
+        "conn.close()\n",
+        NEW_INIT_DB,
+        "init_db",
+    )
+
+
+# ---------------------------------------------------------------------------
+# app.py — /send route
+# ---------------------------------------------------------------------------
+NEW_SEND = '''@app.route('/send', methods=['POST'])
+def send():
+    content = request.form.get('content')
+    type_ = request.form.get('type')
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        if type_ == 'file':
+            file = request.files.get('file')
+            if not file or file.filename == '':
+                return jsonify({'status': 'error', 'message': 'No file provided'}), 400
+
+            ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+            if ext in {'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'heic'}:
+                resource_type = 'image'
+            elif ext in {'mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv', 'm4v'}:
+                resource_type = 'video'
+            else:
+                resource_type = 'raw'
+
+            MAX_SIZE = 10 * 1024 * 1024
+            file.seek(0, os.SEEK_END)
+            size = file.tell()
+            file.seek(0)
+            if size > MAX_SIZE:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'File too large ({size/1024/1024:.1f} MB). Max is 10 MB.'
+                }), 413
+
+            upload_result = cloudinary.uploader.upload(
+                file,
+                resource_type=resource_type,
+                use_filename=True,
+                unique_filename=True,
+                overwrite=False,
+            )
+            secure_url = upload_result.get('secure_url')
+            public_id = upload_result.get('public_id')
+            filename = file.filename
+
+            cur.execute(
+                'INSERT INTO shares (type, value, filename, public_id) VALUES (%s, %s, %s, %s)',
+                ('file', secure_url, filename, public_id)
+            )
+
+        else:
+            if not content:
+                return jsonify({'status': 'error', 'message': 'Empty content'}), 400
+            cur.execute('INSERT INTO shares (type, value) VALUES (%s, %s)',
+                        ('text', content))
+
+        conn.commit()
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+    return jsonify({'status': 'success'})
+'''
+
+
+def app_replace_send(src):
+    if "resource_type=resource_type" in src:
+        return src
+    return replace_block(
+        src,
+        "@app.route('/send', methods=['POST'])",
+        "return jsonify({'status': 'success'})\n",
+        NEW_SEND,
+        "/send",
+    )
+
+
+# ---------------------------------------------------------------------------
+# app.py — /delete route
+# ---------------------------------------------------------------------------
+NEW_DELETE = '''@app.route('/delete/<int:share_id>', methods=['DELETE'])
+def delete_share(share_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute('SELECT type, value, public_id FROM shares WHERE id = %s', (share_id,))
+        share = cur.fetchone()
+
+        if not share:
+            return jsonify({'status': 'not found'}), 404
+
+        if share['type'] == 'file' and share['public_id']:
+            for rt in ('raw', 'image', 'video'):
+                try:
+                    res = cloudinary.uploader.destroy(share['public_id'], resource_type=rt)
+                    if res.get('result') == 'ok':
+                        break
+                except Exception as e:
+                    print(f"Cloudinary destroy ({rt}) error: {e}")
+
+        cur.execute('DELETE FROM shares WHERE id = %s', (share_id,))
+        conn.commit()
+        return jsonify({'status': 'success'})
+
+    except Exception as e:
+        print(f"Delete Error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+'''
+
+
+def app_replace_delete(src):
+    if "for rt in ('raw', 'image', 'video')" in src:
+        return src
+    return replace_block(
+        src,
+        "@app.route('/delete/<int:share_id>', methods=['DELETE'])",
+        "conn.close()\n",
+        NEW_DELETE,
+        "/delete",
+    )
+
+
+# ---------------------------------------------------------------------------
+# app.py — /download route (keep existing if already present)
+# ---------------------------------------------------------------------------
 DOWNLOAD_ROUTE = '''
 @app.route('/download/<int:share_id>')
 def download_share(share_id):
@@ -127,12 +316,12 @@ def app_add_download_route(src):
         return src
     marker = "if __name__ == '__main__':"
     if marker not in src:
-        raise SystemExit("app.py: could not find '__main__' guard")
+        raise SystemExit("app.py: missing __main__ guard")
     return src.replace(marker, DOWNLOAD_ROUTE + marker, 1)
 
 
 # ---------------------------------------------------------------------------
-# requirements.txt transform
+# requirements.txt
 # ---------------------------------------------------------------------------
 def reqs_add_requests(src):
     lines = [ln.strip() for ln in src.splitlines() if ln.strip()]
@@ -144,166 +333,54 @@ def reqs_add_requests(src):
 
 
 # ---------------------------------------------------------------------------
-# templates/index.html transform
+# templates/index.html — new sendFile()
 # ---------------------------------------------------------------------------
-NEW_SCRIPT = """<script>
-    function escapeHtml(s) {
-        return String(s).replace(/[&<>"']/g, c => ({
-            '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-        }[c]));
-    }
-    function escapeAttr(s) { return escapeHtml(s); }
+NEW_SEND_FILE = '''        async function sendFile() {
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput.files.length === 0) return;
+            const file = fileInput.files[0];
 
-    async function copyToClipboard(text) {
-        if (navigator.clipboard && window.isSecureContext) {
-            try {
-                await navigator.clipboard.writeText(text);
-                return true;
-            } catch (_) { /* fall through */ }
-        }
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'fixed';
-        ta.style.top = '-9999px';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        let ok = false;
-        try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
-        document.body.removeChild(ta);
-        return ok;
-    }
-
-    async function loadShares() {
-        try {
-            const res = await fetch('/shares');
-            const data = await res.json();
-            const list = document.getElementById('sharesList');
-            list.innerHTML = '';
-            if (data.length === 0) {
-                list.innerHTML = '<div style="color:var(--text-muted); text-align:center">No drops yet. Be the first!</div>';
+            if (file.size > 10 * 1024 * 1024) {
+                alert(`File too large (${(file.size/1024/1024).toFixed(1)} MB). Max is 10 MB.`);
+                fileInput.value = '';
                 return;
             }
-            data.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'share-item';
 
-                if (item.type === 'text') {
-                    const isUrl = item.value.startsWith('http');
-                    const displayContent = isUrl
-                        ? `<a href="${escapeAttr(item.value)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;word-break:break-all;">${escapeHtml(item.value)}</a>`
-                        : escapeHtml(item.value);
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('type', 'file');
 
-                    div.innerHTML = `
-                        <div class="share-header">
-                            <span class="type-tag">Text</span>
-                            <div style="display:flex; gap:10px; align-items:center;">
-                                <button class="copy-text-btn" data-copy="${escapeAttr(item.value)}">📋 Copy</button>
-                                <button class="delete-btn" data-delete="${item.id}" title="Remove this drop">🗑️</button>
-                            </div>
-                        </div>
-                        <div class="content-text">${displayContent}</div>
-                    `;
-                } else {
-                    div.innerHTML = `
-                        <div class="share-header">
-                            <span class="type-tag">File</span>
-                            <div style="display:flex; gap:10px; align-items:center;">
-                                <a href="/download/${item.id}" class="download-btn">⬇️ Download</a>
-                                <button class="delete-btn" data-delete="${item.id}" title="Remove this file">🗑️</button>
-                            </div>
-                        </div>
-                        <div class="content-text" style="color:var(--text-muted)">${escapeHtml(item.filename || '')}</div>
-                    `;
+            const btn = document.querySelector('.drop-zone');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = `Uploading ${escapeHtml(file.name)}... ⏳`;
+
+            try {
+                const res = await fetch('/send', { method: 'POST', body: formData });
+                const json = await res.json();
+                if (!res.ok || json.status !== 'success') {
+                    throw new Error(json.message || `Upload failed (HTTP ${res.status})`);
                 }
-                list.appendChild(div);
-            });
-        } catch (e) { console.error("Error loading shares", e); }
-    }
-
-    document.getElementById('sharesList').addEventListener('click', async (e) => {
-        const copyBtn = e.target.closest('[data-copy]');
-        if (copyBtn) {
-            const ok = await copyToClipboard(copyBtn.dataset.copy);
-            const original = copyBtn.textContent;
-            copyBtn.textContent = ok ? '✅ Copied!' : '❌ Failed';
-            copyBtn.classList.toggle('success', ok);
-            setTimeout(() => {
-                copyBtn.textContent = original;
-                copyBtn.classList.remove('success');
-            }, 1500);
-            return;
+            } catch (e) {
+                alert('Upload failed: ' + e.message);
+            } finally {
+                btn.innerHTML = originalHTML;
+                fileInput.value = '';
+                loadShares();
+            }
         }
-
-        const delBtn = e.target.closest('[data-delete]');
-        if (delBtn) {
-            deleteShare(Number(delBtn.dataset.delete));
-        }
-    });
-
-    async function deleteShare(id) {
-        if (!confirm("Are you sure you want to wipe this drop?")) return;
-        try {
-            await fetch(`/delete/${id}`, { method: 'DELETE' });
-            loadShares();
-        } catch (e) {
-            alert("Error deleting share");
-        }
-    }
-
-    async function sendText() {
-        const content = document.getElementById('textContent').value;
-        if (!content) return;
-        const formData = new FormData();
-        formData.append('content', content);
-        formData.append('type', 'text');
-        await fetch('/send', { method: 'POST', body: formData });
-        document.getElementById('textContent').value = '';
-        loadShares();
-    }
-
-    async function sendFile() {
-        const fileInput = document.getElementById('fileInput');
-        if (fileInput.files.length === 0) return;
-        const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
-        formData.append('type', 'file');
-
-        const btn = document.querySelector('.drop-zone');
-        const originalHTML = btn.innerHTML;
-        btn.innerHTML = "Uploading... ⏳";
-
-        try {
-            await fetch('/send', { method: 'POST', body: formData });
-        } catch (e) {
-            alert("Upload failed");
-        } finally {
-            btn.innerHTML = originalHTML;
-            fileInput.value = '';
-            loadShares();
-        }
-    }
-
-    setInterval(loadShares, 5000);
-    loadShares();
-</script>
-"""
+'''
 
 
-def html_replace_script(src):
-    if "function escapeAttr(s)" in src:
-        return src  # already patched
-
-    start = src.find("<script>")
-    if start == -1:
-        raise SystemExit("index.html: no <script> block found")
-    end = src.find("</script>", start)
-    if end == -1:
-        raise SystemExit("index.html: no closing </script> found")
-    end += len("</script>")
-
-    return src[:start] + NEW_SCRIPT + src[end:]
+def html_replace_send_file(src):
+    if "Max is 10 MB" in src and "json.message" in src:
+        return src
+    return replace_block(
+        src,
+        "        async function sendFile() {",
+        "        }\n",
+        NEW_SEND_FILE,
+        "sendFile()",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -312,23 +389,29 @@ def html_replace_script(src):
 def main():
     print("== LocalDrop patch ==")
 
-    print("\n[1/3] app.py")
+    print("\n[1/4] app.py")
     patch_file("app.py", [
-        ("add requests + Response imports", app_add_imports),
-        ("add /download/<id> route", app_add_download_route),
+        ("imports (requests + Response)", app_add_imports),
+        ("init_db() with public_id",       app_replace_init_db),
+        ("/send with raw support",         app_replace_send),
+        ("/delete with public_id",         app_replace_delete),
+        ("/download proxy",                app_add_download_route),
     ])
 
-    print("\n[2/3] requirements.txt")
-    patch_file("requirements.txt", [
-        ("ensure 'requests' listed", reqs_add_requests),
-    ])
+    print("\n[2/4] requirements.txt")
+    patch_file("requirements.txt", [("ensure requests", reqs_add_requests)])
 
-    print("\n[3/3] templates/index.html")
+    print("\n[3/4] templates/index.html")
     patch_file(os.path.join("templates", "index.html"), [
-        ("replace <script> block", html_replace_script),
+        ("sendFile() error handling", html_replace_send_file),
     ])
 
-    print("\nDone. Restart the server and hard-refresh the browser (Ctrl+Shift+R).")
+    print("\n[4/4] done.")
+    print("\nNext steps:")
+    print("  pip install -r requirements.txt")
+    print("  restart the server")
+    print("  hard-refresh browser (Ctrl+Shift+R)")
+    print("  the DB schema auto-updates on next boot (ADD COLUMN IF NOT EXISTS)")
 
 
 if __name__ == "__main__":

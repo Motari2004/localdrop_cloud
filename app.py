@@ -34,15 +34,17 @@ def get_db_connection():
 def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute('''
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS shares (
             id SERIAL PRIMARY KEY,
             type VARCHAR(10),
             value TEXT,
             filename TEXT,
+            public_id TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-    ''')
+    """)
+    cur.execute("ALTER TABLE shares ADD COLUMN IF NOT EXISTS public_id TEXT;")
     conn.commit()
     cur.close()
     conn.close()
@@ -60,32 +62,65 @@ def index():
 @app.route('/send', methods=['POST'])
 def send():
     content = request.form.get('content')
-    type_ = request.form.get('type') 
-    
+    type_ = request.form.get('type')
+
     conn = get_db_connection()
     cur = conn.cursor()
-    
+
     try:
         if type_ == 'file':
             file = request.files.get('file')
-            if file:
-                upload_result = cloudinary.uploader.upload(file)
-                secure_url = upload_result.get('secure_url')
-                filename = file.filename
-                cur.execute('INSERT INTO shares (type, value, filename) VALUES (%s, %s, %s)', 
-                            ('file', secure_url, filename))
+            if not file or file.filename == '':
+                return jsonify({'status': 'error', 'message': 'No file provided'}), 400
+
+            ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+            if ext in {'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'heic'}:
+                resource_type = 'image'
+            elif ext in {'mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv', 'm4v'}:
+                resource_type = 'video'
+            else:
+                resource_type = 'raw'
+
+            MAX_SIZE = 10 * 1024 * 1024
+            file.seek(0, os.SEEK_END)
+            size = file.tell()
+            file.seek(0)
+            if size > MAX_SIZE:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'File too large ({size/1024/1024:.1f} MB). Max is 10 MB.'
+                }), 413
+
+            upload_result = cloudinary.uploader.upload(
+                file,
+                resource_type=resource_type,
+                use_filename=True,
+                unique_filename=True,
+                overwrite=False,
+            )
+            secure_url = upload_result.get('secure_url')
+            public_id = upload_result.get('public_id')
+            filename = file.filename
+
+            cur.execute(
+                'INSERT INTO shares (type, value, filename, public_id) VALUES (%s, %s, %s, %s)',
+                ('file', secure_url, filename, public_id)
+            )
+
         else:
-            if content:
-                cur.execute('INSERT INTO shares (type, value) VALUES (%s, %s)', 
-                            ('text', content))
+            if not content:
+                return jsonify({'status': 'error', 'message': 'Empty content'}), 400
+            cur.execute('INSERT INTO shares (type, value) VALUES (%s, %s)',
+                        ('text', content))
+
         conn.commit()
     except Exception as e:
         print(f"Error: {e}")
-        return jsonify({'status': 'error'}), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 500
     finally:
         cur.close()
         conn.close()
-    
+
     return jsonify({'status': 'success'})
 
 @app.route('/shares')
@@ -102,40 +137,30 @@ def get_shares():
 def delete_share(share_id):
     conn = get_db_connection()
     cur = conn.cursor()
-    
+
     try:
-        # 1. Find the share to see if it's a file (to delete from Cloudinary)
-        cur.execute('SELECT type, value FROM shares WHERE id = %s', (share_id,))
+        cur.execute('SELECT type, value, public_id FROM shares WHERE id = %s', (share_id,))
         share = cur.fetchone()
-        
+
         if not share:
             return jsonify({'status': 'not found'}), 404
-            
-        if share['type'] == 'file':
-            # Extract the public_id from the Cloudinary URL
-            # Example URL: https://res.cloudinary.com/demo/image/upload/v1234/folder/sample.jpg
-            url = share['value']
-            # Split by /upload/ and then remove extension from the last part
-            try:
-                parts = url.split('/upload/')
-                if len(parts) > 1:
-                    path_with_version = parts[1].split('/')
-                    # Remove the 'v1234567' version prefix if exists
-                    version_and_path = path_with_version[0].split('/') 
-                    # This is tricky, simpler way: use cloudinary.utils.asset_id_from_url
-                    public_id = cloudinary.utils.asset_id_from_url(url)
-                    cloudinary.uploader.destroy(public_id)
-            except Exception as e:
-                print(f"Cloudinary delete error: {e}")
 
-        # 2. Delete from Neon DB
+        if share['type'] == 'file' and share['public_id']:
+            for rt in ('raw', 'image', 'video'):
+                try:
+                    res = cloudinary.uploader.destroy(share['public_id'], resource_type=rt)
+                    if res.get('result') == 'ok':
+                        break
+                except Exception as e:
+                    print(f"Cloudinary destroy ({rt}) error: {e}")
+
         cur.execute('DELETE FROM shares WHERE id = %s', (share_id,))
         conn.commit()
         return jsonify({'status': 'success'})
-        
+
     except Exception as e:
         print(f"Delete Error: {e}")
-        return jsonify({'status': 'error'}), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 500
     finally:
         cur.close()
         conn.close()
