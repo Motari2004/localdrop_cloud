@@ -5,7 +5,7 @@
     <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2333/2333253.png" type="image/png">
     <meta charset="UTF-8">
     <title>LocalDrop Cloud | Seamless Sharing</title>
-    
+
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,22 +23,22 @@
             --danger: #ef4444;
         }
 
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background: var(--bg); 
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
             background-image: radial-gradient(circle at top right, #1e1b4b, transparent), radial-gradient(circle at bottom left, #0c4a6e, transparent);
-            color: var(--text-main); 
-            max-width: 600px; 
-            margin: 0 auto; 
-            padding: 40px 20px; 
+            color: var(--text-main);
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 40px 20px;
             min-height: 100vh;
         }
 
-        h1 { 
-            text-align: center; 
-            font-weight: 800; 
-            font-size: 2.5rem; 
-            margin-bottom: 8px; 
+        h1 {
+            text-align: center;
+            font-weight: 800;
+            font-size: 2.5rem;
+            margin-bottom: 8px;
             background: linear-gradient(to right, #818cf8, #22d3ee);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -51,25 +51,25 @@
             font-size: 1rem;
         }
 
-        .url-display { 
-            text-align: center; 
-            background: var(--card-bg); 
-            color: var(--accent); 
-            padding: 12px; 
-            border-radius: 12px; 
-            font-size: 0.85em; 
+        .url-display {
+            text-align: center;
+            background: var(--card-bg);
+            color: var(--accent);
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
             font-family: monospace;
-            margin-bottom: 30px; 
+            margin-bottom: 30px;
             border: 1px solid var(--border);
             backdrop-filter: blur(10px);
         }
 
-        .card { 
-            background: var(--card-bg); 
-            padding: 24px; 
-            border-radius: 20px; 
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3); 
-            margin-bottom: 24px; 
+        .card {
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            margin-bottom: 24px;
             border: 1px solid var(--border);
             backdrop-filter: blur(10px);
         }
@@ -83,14 +83,14 @@
             gap: 8px;
         }
 
-        textarea { 
-            width: 100%; 
-            padding: 14px; 
-            margin: 10px 0; 
+        textarea {
+            width: 100%;
+            padding: 14px;
+            margin: 10px 0;
             background: rgba(15, 23, 42, 0.6);
-            border: 1px solid var(--border); 
-            border-radius: 12px; 
-            box-sizing: border-box; 
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-sizing: border-box;
             color: white;
             font-family: inherit;
             transition: border 0.3s;
@@ -119,32 +119,32 @@
 
         #fileInput { display: none; }
 
-        button { 
-            background: var(--primary); 
-            color: white; 
-            border: none; 
-            padding: 14px; 
-            border-radius: 12px; 
-            cursor: pointer; 
-            width: 100%; 
-            font-weight: 600; 
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 600;
             font-size: 1rem;
-            transition: all 0.2s; 
+            transition: all 0.2s;
         }
 
-        button:hover { 
-            background: var(--primary-hover); 
+        button:hover {
+            background: var(--primary-hover);
             transform: translateY(-1px);
         }
 
-        .share-item { 
-            background: rgba(255, 255, 255, 0.03); 
-            padding: 16px; 
-            border-radius: 12px; 
-            margin-bottom: 12px; 
-            display: flex; 
+        .share-item {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            display: flex;
             flex-direction: column;
-            gap: 10px; 
+            gap: 10px;
             border: 1px solid var(--border);
             position: relative;
             transition: background 0.2s;
@@ -162,20 +162,48 @@
             width: 100%;
         }
 
-        .type-tag { 
-            font-size: 0.6em; 
-            text-transform: uppercase; 
-            background: var(--primary); 
-            padding: 3px 8px; 
-            border-radius: 6px; 
-            color: white; 
-            font-weight: 800; 
+        .type-tag {
+            font-size: 0.6em;
+            text-transform: uppercase;
+            background: var(--primary);
+            padding: 3px 8px;
+            border-radius: 6px;
+            color: white;
+            font-weight: 800;
         }
 
-        .content-text { 
-            word-break: break-all; 
-            font-size: 0.95em; 
+        .content-text {
+            word-break: break-all;
+            font-size: 0.95em;
             color: var(--text-main);
+            white-space: pre-wrap;
+        }
+
+        /* --- Long text collapse --- */
+        .content-text.collapsed {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            max-height: 4.5em;
+            white-space: pre-wrap;
+        }
+        .toggle-more {
+            background: transparent;
+            border: none;
+            color: var(--accent);
+            cursor: pointer;
+            font-size: 0.85em;
+            padding: 0;
+            margin-top: 4px;
+            text-align: left;
+            width: auto;
+            font-weight: 600;
+        }
+        .toggle-more:hover {
+            text-decoration: underline;
+            background: transparent;
+            transform: none;
         }
 
         .download-btn {
@@ -220,33 +248,33 @@
             color: white !important;
             transform: scale(1.1);
         }
-    
-    .copy-text-btn {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid var(--border);
-        color: var(--text-muted);
-        padding: 4px 10px;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 12px;
-        transition: all 0.2s;
-        margin-left: 10px;
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-    }
-    .copy-text-btn:hover {
-        background: var(--primary);
-        color: white;
-        border-color: var(--primary);
-    }
-    .copy-text-btn.success {
-        background: #2ecc71 !important;
-        color: white !important;
-        border-color: #2ecc71 !important;
-    }
 
-</style>
+        .copy-text-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            margin-left: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            width: auto;
+        }
+        .copy-text-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .copy-text-btn.success {
+            background: #2ecc71 !important;
+            color: white !important;
+            border-color: #2ecc71 !important;
+        }
+    </style>
 </head>
 <body>
     <h1>LocalDrop</h1>
@@ -275,147 +303,172 @@
     </div>
 
     <script>
-    function escapeHtml(s) {
-        return String(s).replace(/[&<>"']/g, c => ({
-            '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-        }[c]));
-    }
-    function escapeAttr(s) { return escapeHtml(s); }
+        // Preserve expanded state across the 5s refresh
+        const expandedIds = new Set();
 
-    async function copyToClipboard(text) {
-        if (navigator.clipboard && window.isSecureContext) {
-            try {
-                await navigator.clipboard.writeText(text);
-                return true;
-            } catch (_) { /* fall through */ }
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c => ({
+                '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+            }[c]));
         }
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'fixed';
-        ta.style.top = '-9999px';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        let ok = false;
-        try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
-        document.body.removeChild(ta);
-        return ok;
-    }
+        function escapeAttr(s) { return escapeHtml(s); }
 
-    async function loadShares() {
-        try {
-            const res = await fetch('/shares');
-            const data = await res.json();
-            const list = document.getElementById('sharesList');
-            list.innerHTML = '';
-            if (data.length === 0) {
-                list.innerHTML = '<div style="color:var(--text-muted); text-align:center">No drops yet. Be the first!</div>';
+        async function copyToClipboard(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                } catch (_) { /* fall through */ }
+            }
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.top = '-9999px';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            let ok = false;
+            try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+            document.body.removeChild(ta);
+            return ok;
+        }
+
+        async function loadShares() {
+            try {
+                const res = await fetch('/shares');
+                const data = await res.json();
+                const list = document.getElementById('sharesList');
+                list.innerHTML = '';
+                if (data.length === 0) {
+                    list.innerHTML = '<div style="color:var(--text-muted); text-align:center">No drops yet. Be the first!</div>';
+                    return;
+                }
+                data.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'share-item';
+
+                    if (item.type === 'text') {
+                        const isUrl = item.value.startsWith('http');
+                        const displayContent = isUrl
+                            ? `<a href="${escapeAttr(item.value)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;word-break:break-all;">${escapeHtml(item.value)}</a>`
+                            : escapeHtml(item.value);
+
+                        const isLong = item.value.length > 200 || (item.value.match(/\n/g) || []).length >= 3;
+                        const isExpanded = expandedIds.has(item.id);
+                        const contentClass = isLong && !isExpanded ? 'content-text collapsed' : 'content-text';
+                        const toggleLabel = isExpanded ? 'Show less ▴' : 'Show more ▾';
+
+                        div.innerHTML = `
+                            <div class="share-header">
+                                <span class="type-tag">Text</span>
+                                <div style="display:flex; gap:10px; align-items:center;">
+                                    <button class="copy-text-btn" data-copy="${escapeAttr(item.value)}">📋 Copy</button>
+                                    <button class="delete-btn" data-delete="${item.id}" title="Remove this drop">🗑️</button>
+                                </div>
+                            </div>
+                            <div class="${contentClass}">${displayContent}</div>
+                            ${isLong ? `<button class="toggle-more" data-toggle="${item.id}">${toggleLabel}</button>` : ''}
+                        `;
+                    } else {
+                        div.innerHTML = `
+                            <div class="share-header">
+                                <span class="type-tag">File</span>
+                                <div style="display:flex; gap:10px; align-items:center;">
+                                    <a href="/download/${item.id}" class="download-btn">⬇️ Download</a>
+                                    <button class="delete-btn" data-delete="${item.id}" title="Remove this file">🗑️</button>
+                                </div>
+                            </div>
+                            <div class="content-text" style="color:var(--text-muted)">${escapeHtml(item.filename || '')}</div>
+                        `;
+                    }
+                    list.appendChild(div);
+                });
+            } catch (e) { console.error("Error loading shares", e); }
+        }
+
+        document.getElementById('sharesList').addEventListener('click', async (e) => {
+            const copyBtn = e.target.closest('[data-copy]');
+            if (copyBtn) {
+                const ok = await copyToClipboard(copyBtn.dataset.copy);
+                const original = copyBtn.textContent;
+                copyBtn.textContent = ok ? '✅ Copied!' : '❌ Failed';
+                copyBtn.classList.toggle('success', ok);
+                setTimeout(() => {
+                    copyBtn.textContent = original;
+                    copyBtn.classList.remove('success');
+                }, 1500);
                 return;
             }
-            data.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'share-item';
 
-                if (item.type === 'text') {
-                    const isUrl = item.value.startsWith('http');
-                    const displayContent = isUrl
-                        ? `<a href="${escapeAttr(item.value)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;word-break:break-all;">${escapeHtml(item.value)}</a>`
-                        : escapeHtml(item.value);
-
-                    div.innerHTML = `
-                        <div class="share-header">
-                            <span class="type-tag">Text</span>
-                            <div style="display:flex; gap:10px; align-items:center;">
-                                <button class="copy-text-btn" data-copy="${escapeAttr(item.value)}">📋 Copy</button>
-                                <button class="delete-btn" data-delete="${item.id}" title="Remove this drop">🗑️</button>
-                            </div>
-                        </div>
-                        <div class="content-text">${displayContent}</div>
-                    `;
+            const toggleBtn = e.target.closest('[data-toggle]');
+            if (toggleBtn) {
+                const id = Number(toggleBtn.dataset.toggle);
+                const contentEl = toggleBtn.parentElement.querySelector('.content-text');
+                if (expandedIds.has(id)) {
+                    expandedIds.delete(id);
+                    contentEl.classList.add('collapsed');
+                    toggleBtn.textContent = 'Show more ▾';
                 } else {
-                    div.innerHTML = `
-                        <div class="share-header">
-                            <span class="type-tag">File</span>
-                            <div style="display:flex; gap:10px; align-items:center;">
-                                <a href="/download/${item.id}" class="download-btn">⬇️ Download</a>
-                                <button class="delete-btn" data-delete="${item.id}" title="Remove this file">🗑️</button>
-                            </div>
-                        </div>
-                        <div class="content-text" style="color:var(--text-muted)">${escapeHtml(item.filename || '')}</div>
-                    `;
+                    expandedIds.add(id);
+                    contentEl.classList.remove('collapsed');
+                    toggleBtn.textContent = 'Show less ▴';
                 }
-                list.appendChild(div);
-            });
-        } catch (e) { console.error("Error loading shares", e); }
-    }
+                return;
+            }
 
-    document.getElementById('sharesList').addEventListener('click', async (e) => {
-        const copyBtn = e.target.closest('[data-copy]');
-        if (copyBtn) {
-            const ok = await copyToClipboard(copyBtn.dataset.copy);
-            const original = copyBtn.textContent;
-            copyBtn.textContent = ok ? '✅ Copied!' : '❌ Failed';
-            copyBtn.classList.toggle('success', ok);
-            setTimeout(() => {
-                copyBtn.textContent = original;
-                copyBtn.classList.remove('success');
-            }, 1500);
-            return;
+            const delBtn = e.target.closest('[data-delete]');
+            if (delBtn) {
+                deleteShare(Number(delBtn.dataset.delete));
+            }
+        });
+
+        async function deleteShare(id) {
+            if (!confirm("Are you sure you want to wipe this drop?")) return;
+            try {
+                await fetch(`/delete/${id}`, { method: 'DELETE' });
+                expandedIds.delete(id);
+                loadShares();
+            } catch (e) {
+                alert("Error deleting share");
+            }
         }
 
-        const delBtn = e.target.closest('[data-delete]');
-        if (delBtn) {
-            deleteShare(Number(delBtn.dataset.delete));
-        }
-    });
-
-    async function deleteShare(id) {
-        if (!confirm("Are you sure you want to wipe this drop?")) return;
-        try {
-            await fetch(`/delete/${id}`, { method: 'DELETE' });
-            loadShares();
-        } catch (e) {
-            alert("Error deleting share");
-        }
-    }
-
-    async function sendText() {
-        const content = document.getElementById('textContent').value;
-        if (!content) return;
-        const formData = new FormData();
-        formData.append('content', content);
-        formData.append('type', 'text');
-        await fetch('/send', { method: 'POST', body: formData });
-        document.getElementById('textContent').value = '';
-        loadShares();
-    }
-
-    async function sendFile() {
-        const fileInput = document.getElementById('fileInput');
-        if (fileInput.files.length === 0) return;
-        const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
-        formData.append('type', 'file');
-
-        const btn = document.querySelector('.drop-zone');
-        const originalHTML = btn.innerHTML;
-        btn.innerHTML = "Uploading... ⏳";
-
-        try {
+        async function sendText() {
+            const content = document.getElementById('textContent').value;
+            if (!content) return;
+            const formData = new FormData();
+            formData.append('content', content);
+            formData.append('type', 'text');
             await fetch('/send', { method: 'POST', body: formData });
-        } catch (e) {
-            alert("Upload failed");
-        } finally {
-            btn.innerHTML = originalHTML;
-            fileInput.value = '';
+            document.getElementById('textContent').value = '';
             loadShares();
         }
-    }
 
-    setInterval(loadShares, 5000);
-    loadShares();
-</script>
+        async function sendFile() {
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput.files.length === 0) return;
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('type', 'file');
 
+            const btn = document.querySelector('.drop-zone');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = "Uploading... ⏳";
+
+            try {
+                await fetch('/send', { method: 'POST', body: formData });
+            } catch (e) {
+                alert("Upload failed");
+            } finally {
+                btn.innerHTML = originalHTML;
+                fileInput.value = '';
+                loadShares();
+            }
+        }
+
+        setInterval(loadShares, 5000);
+        loadShares();
+    </script>
 </body>
 </html>
